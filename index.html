@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pollinations API Interface</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header { text-align: center; color: white; margin-bottom: 30px; }
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .card { background: white; border-radius: 15px; padding: 25px; margin-bottom: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .card h2 { color: #333; margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
+        input, textarea, select { width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; }
+        input:focus, textarea:focus { outline: none; border-color: #667eea; }
+        textarea { min-height: 120px; resize: vertical; }
+        .btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 25px; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 5px; }
+        .btn:hover { opacity: 0.9; }
+        .response-box { background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 8px; padding: 15px; min-height: 100px; margin-top: 10px; white-space: pre-wrap; }
+        .alert { padding: 12px; border-radius: 8px; margin: 10px 0; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab { padding: 12px 20px; background: rgba(255,255,255,0.2); border: none; border-radius: 8px; color: white; cursor: pointer; }
+        .tab.active { background: white; color: #667eea; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔮 Pollinations API</h1>
+            <p>Interface for https://chatbot-w9g2.onrender.com</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('prompt')">Send Prompt</button>
+            <button class="tab" onclick="showTab('keys')">Manage Keys</button>
+            <button class="tab" onclick="showTab('create')">Create Key</button>
+        </div>
+
+        <!-- Prompt Tab -->
+        <div id="prompt-tab" class="tab-content active">
+            <div class="card">
+                <h2>Send AI Prompt</h2>
+                <input type="text" id="apiKey" placeholder="Your API Key (pk_...)" style="margin-bottom: 15px;">
+                <textarea id="promptText" placeholder="Enter your prompt here...">Hello! How are you today?</textarea>
+                <button class="btn" onclick="sendPrompt()">Send to AI</button>
+                <div class="response-box" id="promptResponse">Response will appear here...</div>
+            </div>
+        </div>
+
+        <!-- Keys Tab -->
+        <div id="keys-tab" class="tab-content">
+            <div class="card">
+                <h2>Manage API Keys</h2>
+                <input type="text" id="adminUser" placeholder="Admin Username" value="mk" style="margin-bottom: 10px;">
+                <input type="password" id="adminPass" placeholder="Admin Password" value="mk123" style="margin-bottom: 15px;">
+                <button class="btn" onclick="loadKeys()">Load Keys</button>
+                <div id="keysList"></div>
+            </div>
+        </div>
+
+        <!-- Create Key Tab -->
+        <div id="create-tab" class="tab-content">
+            <div class="card">
+                <h2>Create New Key</h2>
+                <input type="text" id="keyName" placeholder="Key Name (e.g., My App)" style="margin-bottom: 10px;">
+                <input type="text" id="createUser" placeholder="Admin Username" value="mk" style="margin-bottom: 10px;">
+                <input type="password" id="createPass" placeholder="Admin Password" value="mk123" style="margin-bottom: 15px;">
+                <button class="btn" onclick="createKey()">Generate Key</button>
+                <div id="createResult"></div>
+            </div>
+        </div>
+
+        <div id="alerts"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://chatbot-w9g2.onrender.com';
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function showAlert(message, type = 'success') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            document.getElementById('alerts').appendChild(alert);
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        async function sendPrompt() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const prompt = document.getElementById('promptText').value.trim();
+            const responseBox = document.getElementById('promptResponse');
+
+            if (!apiKey) return showAlert('Please enter API key', 'error');
+            if (!prompt) return showAlert('Please enter prompt', 'error');
+
+            responseBox.textContent = 'Sending...';
+
+            try {
+                // Using POST method with API key in header
+                const response = await fetch(API_URL + '/prompt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': apiKey
+                    },
+                    body: JSON.stringify({ text: prompt })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    responseBox.textContent = data.message;
+                    showAlert('Success!');
+                } else {
+                    responseBox.textContent = 'Error: ' + data.message;
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                responseBox.textContent = 'Error: ' + error.message;
+                showAlert('Network error: ' + error.message, 'error');
+            }
+        }
+
+        async function loadKeys() {
+            const user = document.getElementById('adminUser').value.trim();
+            const pass = document.getElementById('adminPass').value.trim();
+            const keysList = document.getElementById('keysList');
+
+            if (!user || !pass) return showAlert('Enter admin credentials', 'error');
+
+            keysList.innerHTML = 'Loading...';
+
+            try {
+                // Using GET with query parameters
+                const response = await fetch(`${API_URL}/keys?user=${encodeURIComponent(user)}&pwd=${encodeURIComponent(pass)}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    if (data.data.keys.length > 0) {
+                        let html = '<div style="margin-top: 20px;">';
+                        data.data.keys.forEach(key => {
+                            html += `
+                                <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px;">
+                                    <strong>${key.name}</strong> 
+                                    <span style="background: ${key.active ? '#d4edda' : '#f8d7da'}; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
+                                        ${key.active ? 'ACTIVE' : 'INACTIVE'}
+                                    </span>
+                                    <div style="font-family: monospace; background: #f8f9fa; padding: 8px; margin: 8px 0; border-radius: 4px;">
+                                        ${key.key}
+                                    </div>
+                                    <div style="font-size: 12px; color: #666;">
+                                        Requests: ${key.requests} | Created: ${key.created}
+                                    </div>
+                                    <button class="btn" onclick="copyKey('${key.key}')" style="padding: 5px 10px; font-size: 12px;">Copy</button>
+                                    <button class="btn" onclick="toggleKey(${key.id})" style="padding: 5px 10px; font-size: 12px; background: #ffc107;">
+                                        ${key.active ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                    <button class="btn" onclick="deleteKey(${key.id})" style="padding: 5px 10px; font-size: 12px; background: #dc3545;">
+                                        Delete
+                                    </button>
+                                </div>
+                            `;
+                        });
+                        keysList.innerHTML = html;
+                    } else {
+                        keysList.innerHTML = 'No keys found';
+                    }
+                    showAlert('Keys loaded');
+                } else {
+                    keysList.innerHTML = 'Error: ' + data.message;
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                keysList.innerHTML = 'Network error: ' + error.message;
+                showAlert('Network error', 'error');
+            }
+        }
+
+        async function createKey() {
+            const name = document.getElementById('keyName').value.trim();
+            const user = document.getElementById('createUser').value.trim();
+            const pass = document.getElementById('createPass').value.trim();
+            const result = document.getElementById('createResult');
+
+            if (!name) return showAlert('Enter key name', 'error');
+            if (!user || !pass) return showAlert('Enter admin credentials', 'error');
+
+            result.innerHTML = 'Creating...';
+
+            try {
+                const response = await fetch(API_URL + '/keys/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        username: user,
+                        password: pass
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    result.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>Success!</strong> ${data.message}
+                        </div>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                            <strong>Your API Key:</strong>
+                            <div style="font-family: monospace; background: white; padding: 10px; margin: 10px 0; border-radius: 4px;">
+                                ${data.data.api_key}
+                            </div>
+                            <strong style="color: red;">Save this key - it won't be shown again!</strong>
+                            <br>
+                            <button class="btn" onclick="copyKey('${data.data.api_key}')">Copy Key</button>
+                        </div>
+                    `;
+                    document.getElementById('keyName').value = '';
+                } else {
+                    result.innerHTML = '<div class="alert alert-error">Error: ' + data.message + '</div>';
+                }
+            } catch (error) {
+                result.innerHTML = '<div class="alert alert-error">Network error: ' + error.message + '</div>';
+            }
+        }
+
+        async function toggleKey(keyId) {
+            const user = document.getElementById('adminUser').value.trim();
+            const pass = document.getElementById('adminPass').value.trim();
+
+            try {
+                const response = await fetch(API_URL + '/keys/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        key_id: keyId,
+                        username: user,
+                        password: pass
+                    })
+                });
+
+                const data = await response.json();
+                showAlert(data.message);
+                loadKeys();
+            } catch (error) {
+                showAlert('Network error', 'error');
+            }
+        }
+
+        async function deleteKey(keyId) {
+            if (!confirm('Delete this key?')) return;
+            
+            const user = document.getElementById('adminUser').value.trim();
+            const pass = document.getElementById('adminPass').value.trim();
+
+            try {
+                const response = await fetch(API_URL + '/keys/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        key_id: keyId,
+                        username: user,
+                        password: pass
+                    })
+                });
+
+                const data = await response.json();
+                showAlert(data.message);
+                loadKeys();
+            } catch (error) {
+                showAlert('Network error', 'error');
+            }
+        }
+
+        function copyKey(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showAlert('Copied to clipboard!');
+            });
+        }
+
+        // Test the API connection on load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                console.log('API is connected:', data);
+            } catch (error) {
+                console.log('API connection test failed:', error);
+            }
+        });
+    </script>
+</body>
+  </html>
